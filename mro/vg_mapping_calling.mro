@@ -1,0 +1,89 @@
+filetype bam;
+filetype vcf.gz;
+filetype bam.bai;
+filetype fastq;
+filetype sam;
+filetype fq.gz;
+filetype xg;
+filetype gcsa;
+filetype fq;
+filetype gam;
+filetype vg;
+filetype gam.index;
+
+stage VG_MAP(
+    in xg xg,
+    in gcsa gcsa,
+    in map fastqs, # map from sample_name to fq.gz
+    in int memgb,
+    out map gams, # map from sample_name to gam
+    out gam gam,
+    out string sample_name,
+    src py "stages/vg_map",
+) split using (
+    in string fastq,
+    in string sample_name,
+)
+
+stage VG_CHUNK(
+    in xg xg,
+    in map gams, # map from sample_name to gam, there will be intermediate gam.index files
+    in int chunk_size,
+    in int context_steps,
+    in int overlap,
+    out vg[] sample_vgs,
+    out map all_gams, #map from sample_name to list tuples of gams, gam_index, vg
+    out gam[] gams,
+    out gam.index[] gam_indexes,
+    out string sample_name,
+    src py "stages/vg_chunk",
+) split using (
+    in gam gam,
+    in string gam_index,
+    in string sample_name,
+)
+
+stage VG_CALL_VARIANTS(
+    in map gams, # map from sample_name to list of gams
+    out string sample_name,
+    out map vcfs, # map from sample_name to vcfs
+    src py "stages/vg_call_variants",
+) split using (
+    in gam gam,
+    in gam.index gam_index,
+    in vg vg,
+    in string sample_name,
+)
+
+pipeline VG_MAP_CALL(
+    in map fastqs, # map from sample_name to fq.gz
+    in xg xg,
+    in gcsa gcsa,
+    out map vg_vcfs, # map from sample_name to vcfs
+    out map gams, # map from sample_name to gams
+)
+{
+    call VG_MAP(
+        xg = self.xg,
+        gcsa = self.gcsa,
+        fastqs = self.fastqs,        
+        memgb = 12,
+    )
+
+    call VG_CHUNK(
+        xg = self.xg,
+        gams = VG_MAP.gams,
+        chunk_size = 1000000,
+        context_steps = 5,
+        overlap = 1000,
+    )
+
+    call VG_CALL_VARIANTS(
+        gams = VG_CHUNK.all_gams,
+    )
+
+    return(
+        vg_vcfs = VG_CALL_VARIANTS.vcfs, 
+        gams = VG_MAP.gams,
+    )
+}

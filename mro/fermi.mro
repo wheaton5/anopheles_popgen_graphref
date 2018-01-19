@@ -1,0 +1,30 @@
+
+filetype mag.gz;
+filetype vcf.gz;
+
+stage FERMI(
+    in string[] fastqs,
+        out mag.gz assembly,
+        out vcf.gz vcf,
+	src py "stages/fermi",
+) split using (
+    in  string fastq,
+) 
+
+
+pipeline FERMI_RUN(
+    in string[] fastqs,
+    out mag.gz assembly,
+    out vcf.gz vcf,   
+)
+{
+    call FERMI(
+        fastqs = self.fastqs,
+    )
+
+    return(
+        vcf = FERMI.vcf,
+        assembly = FERMI.assembly,
+    )
+}
+

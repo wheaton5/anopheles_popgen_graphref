@@ -1,0 +1,46 @@
+
+filetype vcf.gz;
+filetype vg;
+filetype gcsa;
+filetype xg;
+
+stage VG(
+    in vcf.gz[] vcfs,
+    in string locus,
+    out vg reference,
+    out xg xg,
+    src py "stages/vg",
+) split using (
+    in string chrom,
+)
+
+stage INDEX(
+    in vg reference,
+    out gcsa gcsa,
+    src py "stages/vg_index",
+) split using ()
+
+pipeline VGP(
+    in vcf.gz[] vcfs,
+    in string locus,
+    out vg reference,
+    out gcsa gcsa,
+    out xg xg,
+)
+{
+    call VG(
+        locus = self.locus,
+        vcfs = self.vcfs,
+    )
+
+    call INDEX(
+        reference = VG.reference,
+    )
+
+    return(
+        reference = VG.reference,
+        gcsa = INDEX.gcsa,
+        xg = VG.xg,
+    )
+}
+

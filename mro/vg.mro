@@ -1,0 +1,27 @@
+
+filetype vcf.gz;
+filetype vg;
+
+stage VG(
+    in vcf.gz vcf,
+        out vg reference,
+	src py "stages/vg",
+) split using (
+    in string boop,
+)
+
+
+pipeline VGP(
+    in vcf.gz vcf,
+    out vg reference,
+)
+{
+    call VG(
+        vcf = self.vcf,
+    )
+
+    return(
+        reference = VG.reference,
+    )
+}
+

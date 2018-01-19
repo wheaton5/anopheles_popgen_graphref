@@ -1,0 +1,37 @@
+
+filetype bam.bai;
+filetype bam;
+filetype fq.gz;
+
+stage GET_BAMS_FQS(
+    in string[] bam_fns,
+        out bam.bai[] indexes,
+        out bam.bai index,
+        out bam bam,
+        out fq.gz fastq,
+        out bam[] bams,
+        out fq.gz[] fastqs,
+	src py "stages/get_bams_fqs",
+) split using (
+    in string bam_fn,
+)
+
+
+pipeline GET_BAMS_FQS_PIPE(
+    in string[] bam_fns,
+    out bam.bai[] indexes,
+    out bam[] bams,
+    out fq.gz[] fastqs,
+)
+{
+    call GET_BAMS_FQS(
+        bam_fns = self.bam_fns,
+    )
+
+    return(
+        indexes = GET_BAMS_FQS.indexes,
+        bams = GET_BAMS_FQS.bams,
+        fastqs = GET_BAMS_FQS.fastqs,
+    )
+}
+

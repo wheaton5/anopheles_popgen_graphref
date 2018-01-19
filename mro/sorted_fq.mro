@@ -1,0 +1,117 @@
+filetype bam;
+filetype bam.bai;
+filetype vcf.gz;
+filetype bam.bai;
+filetype fastq;
+filetype sam;
+filetype fq.gz;
+
+stage SORT_FQ(
+    in map bams,
+    out fq.gz fastq,
+    out map fastqs,
+    out string sample_name,
+    src py "stages/sorted_fq",
+) split using (
+    in string bam,
+    in string sample_name,
+)
+
+stage BWA(
+    in map fastqs,
+    out sam sam,
+    out map sams,
+    out string sample_name,
+    src py "stages/bwa_mem",
+) split using (
+    in string fastq,
+    in string sample_name,
+)
+
+stage SORT_BAM(
+    in map sams,
+    out bam bam,
+    out map bams,
+    out map bam_indexes,
+    out bam.bai bam_index,
+    src py "stages/sort_bam",
+) split using (
+    in string sam,
+)
+
+stage FREEBAYES(
+    in map bams, # map from sample_name to bam
+    out vcf.gz vcf,
+    out string sample_name,
+    out string region,
+    out map vcfs, # map from sample_name to vcf.gz
+    out map vcf_indexes,
+    src py "stages/freebayes",
+) split using (
+    in string bam,
+    in string sample_name,
+    in string region,
+)
+    
+
+
+pipeline CALL_VARIANTS(
+    in map bams, # map from sample name to bam
+    out map vcfs, # map from sample name to vcf.gz
+    out map vcf_indexes, # map from sample name to vcf.gz.tbi
+    out map bams, # map from sample name to bam
+    out map bam_indexes,
+)
+{
+    call SORT_FQ(
+        bams = self.bams,
+    )
+
+    call BWA(
+        fastqs = SORT_FQ.fastqs,
+    )
+    
+    call SORT_BAM(
+        sams = BWA.sams,
+    )
+
+    call FREEBAYES(
+        bams = SORT_BAM.bams,
+    )
+
+    return(
+        vcfs = FREEBAYES.vcfs,
+        vcf_indexes = FREEBAYES.vcf_indexes,
+        bams = SORT_BAM.bams,
+        bam_indexes = SORT_BAM.bam_indexes,
+    )
+}
+
+pipeline CALL_VARIANTS2(
+    in map fastqs, # map from sample name to bam
+    out map vcfs, # map from sample name to vcf.gz
+    out map vcf_indexes, # map from sample name to vcf.gz.tbi
+    out map bams, # map from sample name to bam
+    out map bam_indexes,
+)
+{
+
+    call BWA(
+        fastqs = self.fastqs,
+    )
+    
+    call SORT_BAM(
+        sams = BWA.sams,
+    )
+
+    call FREEBAYES(
+        bams = SORT_BAM.bams,
+    )
+
+    return(
+        vcfs = FREEBAYES.vcfs,
+        vcf_indexes = FREEBAYES.vcf_indexes,
+        bams = SORT_BAM.bams,
+        bam_indexes = SORT_BAM.bam_indexes,
+    )
+}

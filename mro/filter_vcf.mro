@@ -1,0 +1,24 @@
+
+filetype vcf.gz;
+
+stage FILTER_VCF(
+        out vcf.gz vcf,
+        out string chrom,
+        out int    start,
+	src py "stages/filter_vcf",
+) split using (
+	in string vcf,
+)
+
+
+pipeline FILTER_VCF_PIPE(
+
+    out vcf.gz vcf,   
+)
+{
+    call FILTER_VCF()
+    return(
+        vcf = FILTER_VCF.vcf,
+    )
+}
+
